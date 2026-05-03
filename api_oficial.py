@@ -1,3 +1,22 @@
+"""
+Projeto de Big Data - Dashboard de Energia Renovável no Nordeste
+
+Este sistema foi desenvolvido para analisar dados oficiais da ANEEL sobre
+energia solar e eólica nos estados do Nordeste.
+
+A proposta é transformar dados técnicos em informações visuais, facilitando:
+- ranking dos estados;
+- expansão das usinas;
+- produção estimada mensal;
+- produção estimada anual;
+- projeção para 2027;
+- comparação lado a lado entre estados.
+
+Observação:
+A base da ANEEL informa capacidade instalada. Por isso, a produção apresentada
+é uma estimativa calculada com base em fator médio de capacidade.
+"""
+
 from flask import Flask, jsonify, request, render_template
 import pandas as pd
 import numpy as np
@@ -9,17 +28,36 @@ app = Flask(__name__)
 URL_SIGA = "https://dadosabertos.aneel.gov.br/dataset/6d90b77c-c5f5-4d81-bdec-7bc619494bb9/resource/2f65a1b0-19b8-4360-8238-b34ab4693d55/download/siga-empreendimentos-geracao-diario.csv"
 
 ESTADOS = {
-    "AL": "Alagoas", "BA": "Bahia", "CE": "Ceará", "MA": "Maranhão",
-    "PB": "Paraíba", "PE": "Pernambuco", "PI": "Piauí",
-    "RN": "Rio Grande do Norte", "SE": "Sergipe"
+    "AL": "Alagoas",
+    "BA": "Bahia",
+    "CE": "Ceará",
+    "MA": "Maranhão",
+    "PB": "Paraíba",
+    "PE": "Pernambuco",
+    "PI": "Piauí",
+    "RN": "Rio Grande do Norte",
+    "SE": "Sergipe"
 }
 
 MESES = {
-    1: "Jan", 2: "Fev", 3: "Mar", 4: "Abr", 5: "Mai", 6: "Jun",
-    7: "Jul", 8: "Ago", 9: "Set", 10: "Out", 11: "Nov", 12: "Dez"
+    1: "Jan",
+    2: "Fev",
+    3: "Mar",
+    4: "Abr",
+    5: "Mai",
+    6: "Jun",
+    7: "Jul",
+    8: "Ago",
+    9: "Set",
+    10: "Out",
+    11: "Nov",
+    12: "Dez"
 }
 
-CACHE = {"df": None, "hora": 0}
+CACHE = {
+    "df": None,
+    "hora": 0
+}
 
 
 @app.route("/")
@@ -40,6 +78,11 @@ def fator_capacidade(fonte):
 
 
 def carregar_dados():
+    """
+    Aqui eu carrego os dados oficiais da ANEEL.
+    Usei cache para evitar baixar a base toda vez que o usuário faz uma consulta.
+    """
+
     agora = time.time()
 
     if CACHE["df"] is not None and agora - CACHE["hora"] < 1800:
@@ -70,8 +113,10 @@ def carregar_dados():
 
         if "solar" in fonte or "fotovolta" in fonte or "ufv" in tipo:
             return "Solar"
+
         if "eol" in fonte or "vento" in fonte:
             return "Eólica"
+
         return "Outros"
 
     df["fonte_padronizada"] = df.apply(classificar_fonte, axis=1)
@@ -88,11 +133,16 @@ def preparar_estados(estado):
         return list(ESTADOS.keys())
 
     estados = [uf.strip() for uf in estado.split(",") if uf.strip() in ESTADOS]
-    return estados if estados else ["CE"]
+
+    if len(estados) == 0:
+        return ["CE"]
+
+    return estados
 
 
-def filtrar(df, estado, fonte):
+def filtrar_dados(df, estado, fonte):
     estados = preparar_estados(estado)
+
     dados = df[df["sigufprincipal"].isin(estados)].copy()
 
     if fonte and fonte != "Todas":
@@ -112,24 +162,28 @@ def serie_capacidade_anual(dados):
     )
 
 
-def producao_anual(dados, fonte):
+def producao_anual_estimada(dados, fonte):
     return serie_capacidade_anual(dados) * 8760 * fator_capacidade(fonte)
 
 
-def producao_mensal(dados, fonte):
+def producao_mensal_estimada(dados, fonte):
     fator = fator_capacidade(fonte)
 
     dados = dados.dropna(subset=["data_operacao"]).copy()
     dados["mes"] = dados["data_operacao"].dt.month
 
-    capacidade = (
+    capacidade_mensal = (
         dados.groupby("mes")["potencia_kw"]
         .sum()
         .sort_index() / 1000
     )
 
-    producao = capacidade * 730 * fator
-    return {MESES[m]: float(producao.get(m, 0)) for m in range(1, 13)}
+    producao = capacidade_mensal * 730 * fator
+
+    return {
+        MESES[mes]: float(producao.get(mes, 0))
+        for mes in range(1, 13)
+    }
 
 
 def projetar_2027(serie):
@@ -141,8 +195,8 @@ def projetar_2027(serie):
     anos = serie.index.astype(int).values
     valores = serie.values
 
-    coef = np.polyfit(anos, valores, 1)
-    previsao = np.polyval(coef, 2027)
+    coeficiente = np.polyfit(anos, valores, 1)
+    previsao = np.polyval(coeficiente, 2027)
 
     return max(0, float(previsao))
 
@@ -152,10 +206,10 @@ def api_resumo():
     fonte = request.args.get("fonte", "Todas")
 
     df = carregar_dados()
-    dados = filtrar(df, "TODOS", fonte)
+    dados = filtrar_dados(df, "TODOS", fonte)
 
     total_mw = dados["potencia_kw"].sum() / 1000
-    producao_estimada = total_mw * 8760 * fator_capacidade(fonte)
+    producao = total_mw * 8760 * fator_capacidade(fonte)
 
     ranking = (
         dados.groupby("sigufprincipal")["potencia_kw"]
@@ -172,9 +226,9 @@ def api_resumo():
 
     return jsonify({
         "total_mw": round(float(total_mw), 2),
-        "producao_anual": round(float(producao_estimada), 2),
+        "producao_anual": round(float(producao), 2),
         "lider": lider,
-        "lider_mw": round(lider_mw, 2),
+        "lider_mw": round(float(lider_mw), 2),
         "registros": int(len(dados))
     })
 
@@ -187,22 +241,23 @@ def api_comparativo():
     df = carregar_dados()
     estados = preparar_estados(estado)
 
-    cards = []
+    comparativo = []
 
     for uf in estados:
-        dados = filtrar(df, uf, fonte)
-        total_mw = dados["potencia_kw"].sum() / 1000
-        producao_estimada = total_mw * 8760 * fator_capacidade(fonte)
+        dados = filtrar_dados(df, uf, fonte)
 
-        cards.append({
+        total_mw = dados["potencia_kw"].sum() / 1000
+        producao = total_mw * 8760 * fator_capacidade(fonte)
+
+        comparativo.append({
             "uf": uf,
             "estado": nome_estado(uf),
             "capacidade_mw": round(float(total_mw), 2),
-            "producao_mwh": round(float(producao_estimada), 2),
+            "producao_mwh": round(float(producao), 2),
             "registros": int(len(dados))
         })
 
-    return jsonify(cards)
+    return jsonify(comparativo)
 
 
 @app.route("/api/dados_grafico")
@@ -214,7 +269,7 @@ def api_dados_grafico():
     df = carregar_dados()
 
     if tipo == "ranking":
-        dados = filtrar(df, "TODOS", fonte)
+        dados = filtrar_dados(df, "TODOS", fonte)
 
         ranking = (
             dados.groupby("sigufprincipal")["potencia_kw"]
@@ -227,48 +282,42 @@ def api_dados_grafico():
             "labels": [nome_estado(uf) for uf in ranking.index],
             "datasets": [{
                 "label": "Capacidade instalada (MW)",
-                "data": [round(float(v), 2) for v in ranking.values]
+                "data": [round(float(valor), 2) for valor in ranking.values]
             }]
         })
 
     estados = preparar_estados(estado)
     datasets = []
-
     labels_finais = []
 
     for uf in estados:
-        dados_estado = filtrar(df, uf, fonte)
+        dados_estado = filtrar_dados(df, uf, fonte)
 
         if tipo == "expansao_usinas":
             serie = serie_capacidade_anual(dados_estado).tail(8)
-            labels = [str(x) for x in serie.index]
-            valores = [round(float(v), 2) for v in serie.values]
-            titulo = "MW adicionados"
+            labels = [str(ano) for ano in serie.index]
+            valores = [round(float(valor), 2) for valor in serie.values]
 
         elif tipo == "producao_mensal":
-            serie = producao_mensal(dados_estado, fonte)
-            labels = list(serie.keys())
-            valores = [round(float(v), 2) for v in serie.values()]
-            titulo = "MWh estimados"
+            producao = producao_mensal_estimada(dados_estado, fonte)
+            labels = list(producao.keys())
+            valores = [round(float(valor), 2) for valor in producao.values()]
 
         elif tipo == "producao_anual":
-            serie = producao_anual(dados_estado, fonte).tail(8)
-            labels = [str(x) for x in serie.index]
-            valores = [round(float(v), 2) for v in serie.values]
-            titulo = "MWh estimados"
+            serie = producao_anual_estimada(dados_estado, fonte).tail(8)
+            labels = [str(ano) for ano in serie.index]
+            valores = [round(float(valor), 2) for valor in serie.values]
 
         elif tipo == "projecao_2027":
             serie = serie_capacidade_anual(dados_estado).tail(8)
             previsao = projetar_2027(serie)
 
-            labels = [str(x) for x in serie.index] + ["2027"]
-            valores = [round(float(v), 2) for v in serie.values] + [round(previsao, 2)]
-            titulo = "MW adicionados/projetados"
+            labels = [str(ano) for ano in serie.index] + ["2027"]
+            valores = [round(float(valor), 2) for valor in serie.values] + [round(float(previsao), 2)]
 
         else:
             labels = []
             valores = []
-            titulo = "Valores"
 
         labels_finais = labels
 
@@ -280,8 +329,7 @@ def api_dados_grafico():
     return jsonify({
         "tipo_grafico": "line",
         "labels": labels_finais,
-        "datasets": datasets,
-        "titulo_eixo": titulo
+        "datasets": datasets
     })
 
 
@@ -295,7 +343,7 @@ def api_analise():
     titulo_fonte = fonte if fonte != "Todas" else "Solar + Eólica"
 
     if tipo == "ranking":
-        dados = filtrar(df, "TODOS", fonte)
+        dados = filtrar_dados(df, "TODOS", fonte)
 
         ranking = (
             dados.groupby("sigufprincipal")["potencia_kw"]
@@ -303,37 +351,108 @@ def api_analise():
             .sort_values(ascending=False) / 1000
         )
 
+        fator = fator_capacidade(fonte)
+
         lider_uf = ranking.index[0]
         lider_valor = float(ranking.iloc[0])
-        producao_lider = lider_valor * 8760 * fator_capacidade(fonte)
+        producao_lider = lider_valor * 8760 * fator
 
-        texto = f"Ranking Nordeste - {titulo_fonte}\n\n"
-        texto += f"O estado líder é {nome_estado(lider_uf)}, com {lider_valor:.2f} MW de capacidade instalada.\n"
+        texto = f"Ranking do Nordeste - {titulo_fonte}\n\n"
+        texto += f"O estado que lidera é {nome_estado(lider_uf)}, com {lider_valor:.2f} MW de capacidade instalada.\n"
         texto += f"A produção estimada anual do líder é de aproximadamente {producao_lider:.2f} MWh/ano.\n\n"
         texto += "Classificação dos estados:\n"
 
         for i, (uf, valor) in enumerate(ranking.items(), start=1):
             texto += f"{i}. {nome_estado(uf)} - {valor:.2f} MW instalados\n"
 
+        texto += "\nFonte: dados oficiais da ANEEL."
         return jsonify({"resposta": texto})
 
     estados = preparar_estados(estado)
-    texto = f"Análise selecionada - {titulo_fonte}\n"
-    texto += f"Estados comparados: {', '.join(nome_estado(uf) for uf in estados)}\n\n"
 
-    for uf in estados:
-        dados = filtrar(df, uf, fonte)
-        total = dados["potencia_kw"].sum() / 1000
-        prod = total * 8760 * fator_capacidade(fonte)
+    if tipo == "expansao_usinas":
+        texto = f"Expansão de usinas - {titulo_fonte}\n"
+        texto += f"Estados comparados: {', '.join(nome_estado(uf) for uf in estados)}\n\n"
 
-        texto += f"{nome_estado(uf)}\n"
-        texto += f"Capacidade instalada total: {total:.2f} MW\n"
-        texto += f"Produção estimada anual: {prod:.2f} MWh/ano\n"
-        texto += f"Registros analisados: {len(dados)}\n\n"
+        for uf in estados:
+            dados_estado = filtrar_dados(df, uf, fonte)
+            serie = serie_capacidade_anual(dados_estado).tail(8)
 
-    texto += "Observação: a produção foi estimada com base na capacidade instalada e em fator médio de capacidade."
+            texto += f"{nome_estado(uf)}\n"
+            texto += "Histórico anual de capacidade adicionada:\n"
 
-    return jsonify({"resposta": texto})
+            for ano, valor in serie.items():
+                texto += f"{ano}: {valor:.2f} MW adicionados\n"
+
+            texto += "\n"
+
+        return jsonify({"resposta": texto})
+
+    if tipo == "producao_mensal":
+        texto = f"Produção estimada mensal - {titulo_fonte}\n"
+        texto += f"Estados comparados: {', '.join(nome_estado(uf) for uf in estados)}\n\n"
+
+        for uf in estados:
+            dados_estado = filtrar_dados(df, uf, fonte)
+            producao = producao_mensal_estimada(dados_estado, fonte)
+
+            texto += f"{nome_estado(uf)}\n"
+
+            for mes, valor in producao.items():
+                texto += f"{mes}: {valor:.2f} MWh estimados\n"
+
+            texto += "\n"
+
+        texto += "Observação: a produção mensal é estimada a partir da capacidade instalada."
+        return jsonify({"resposta": texto})
+
+    if tipo == "producao_anual":
+        texto = f"Produção estimada anual - {titulo_fonte}\n"
+        texto += f"Estados comparados: {', '.join(nome_estado(uf) for uf in estados)}\n\n"
+
+        for uf in estados:
+            dados_estado = filtrar_dados(df, uf, fonte)
+            serie = producao_anual_estimada(dados_estado, fonte).tail(8)
+
+            texto += f"{nome_estado(uf)}\n"
+
+            for ano, valor in serie.items():
+                texto += f"{ano}: {valor:.2f} MWh estimados\n"
+
+            texto += "\n"
+
+        texto += "Observação: a produção anual é estimada com base em horas anuais e fator médio de capacidade."
+        return jsonify({"resposta": texto})
+
+    if tipo == "projecao_2027":
+        texto = f"Projeção de capacidade instalada para 2027 - {titulo_fonte}\n"
+        texto += f"Estados comparados: {', '.join(nome_estado(uf) for uf in estados)}\n\n"
+
+        for uf in estados:
+            dados_estado = filtrar_dados(df, uf, fonte)
+            serie = serie_capacidade_anual(dados_estado).tail(8)
+            previsao = projetar_2027(serie)
+
+            ultimo_ano = int(serie.index[-1]) if len(serie) > 0 else 2026
+            ultimo_valor = float(serie.iloc[-1]) if len(serie) > 0 else 0
+
+            crescimento = 0
+            if ultimo_valor != 0:
+                crescimento = ((previsao - ultimo_valor) / ultimo_valor) * 100
+
+            texto += f"{nome_estado(uf)}\n"
+            texto += "Histórico recente:\n"
+
+            for ano, valor in serie.items():
+                texto += f"{ano}: {valor:.2f} MW adicionados\n"
+
+            texto += f"2027 projetado: {previsao:.2f} MW\n"
+            texto += f"Crescimento estimado em relação a {ultimo_ano}: {crescimento:.2f}%\n\n"
+
+        texto += "Observação: a projeção utiliza tendência linear simples com base nos anos anteriores."
+        return jsonify({"resposta": texto})
+
+    return jsonify({"resposta": "Tipo de análise não reconhecido."})
 
 
 if __name__ == "__main__":

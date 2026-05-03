@@ -345,17 +345,17 @@ footer {
 <aside class="sidebar">
     <div class="logo">⚡ Energia<span>NE</span></div>
     <p>
-        Dashboard empresarial para análise de energia renovável no Nordeste,
+        Dashboard para análise de energia renovável no Nordeste,
         utilizando dados oficiais da ANEEL.
     </p>
 
     <div class="menu-title">Análises</div>
 
-    <button class="nav-btn active" onclick="selecionarTipo('expansao_usinas', this)">🏗️ Expansão de Usinas</button>
-    <button class="nav-btn" onclick="selecionarTipo('producao_mensal', this)">📆 Produção Mensal</button>
-    <button class="nav-btn" onclick="selecionarTipo('producao_anual', this)">📈 Produção Anual</button>
-    <button class="nav-btn" onclick="selecionarTipo('projecao_2027', this)">🔮 Projeção 2027</button>
-    <button class="nav-btn" onclick="selecionarTipo('ranking', this)">🏆 Ranking Nordeste</button>
+    <button class="nav-btn active" onclick="selecionarTipo('expansao_usinas', this)">🏗️ Expansão das Usinas</button>
+    <button class="nav-btn" onclick="selecionarTipo('producao_mensal', this)">📆 Produção Estimada Mensal</button>
+    <button class="nav-btn" onclick="selecionarTipo('producao_anual', this)">📈 Produção Estimada Anual</button>
+    <button class="nav-btn" onclick="selecionarTipo('projecao_2027', this)">🔮 Projeção para 2027</button>
+    <button class="nav-btn" onclick="selecionarTipo('ranking', this)">🏆 Ranking do Nordeste</button>
 </aside>
 
 <main class="main">
@@ -364,8 +364,9 @@ footer {
         <div>
             <h1>Dashboard de Energia Renovável</h1>
             <p>
-                Análise interativa de energia solar e eólica nos estados do Nordeste,
-                com indicadores, gráficos dinâmicos, comparação entre estados e projeção futura.
+                Neste painel, é possível comparar estados, visualizar a expansão das usinas,
+                estimar a produção de energia e observar uma projeção para 2027.
+                A ideia foi transformar dados técnicos em informações fáceis de entender.
             </p>
         </div>
         <div class="badge">Python • Flask • ANEEL • Render</div>
@@ -449,7 +450,7 @@ footer {
     </section>
 
     <footer>
-        Projeto Big Data • Dados oficiais da ANEEL • Dashboard online e responsivo
+        Projeto desenvolvido para a disciplina de Big Data • Dados oficiais da ANEEL • Análise feita com Python, Flask e visualização interativa
     </footer>
 
 </main>
@@ -506,7 +507,7 @@ function pegarEstadosSelecionados() {
 function atualizarCards() {
     const fonte = document.getElementById("fonte").value;
 
-    fetch(`/api/resumo?fonte=${encodeURIComponent(fonte)}`)
+    return fetch(`/api/resumo?fonte=${encodeURIComponent(fonte)}`)
         .then(res => res.json())
         .then(data => {
             document.getElementById("cardCapacidade").innerText = formatarNumero(data.total_mw);
@@ -548,7 +549,7 @@ function atualizarGrafico() {
                 backgroundColor: cores[index % cores.length] + "55",
                 borderWidth: 3,
                 tension: 0.35,
-                fill: data.tipo_grafico === "line" ? false : true
+                fill: data.tipo_grafico === "bar"
             }));
 
             grafico = new Chart(ctx, {
