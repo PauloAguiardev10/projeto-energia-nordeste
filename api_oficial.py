@@ -10,7 +10,8 @@ A proposta é transformar dados técnicos em informações visuais, facilitando:
 - produção estimada mensal;
 - produção estimada anual;
 - projeção para 2027;
-- comparação lado a lado entre estados.
+- comparação lado a lado entre estados;
+- cards inteligentes com crescimento percentual e mini gráficos.
 
 Observação:
 A base da ANEEL informa capacidade instalada. Por isso, a produção apresentada
@@ -80,7 +81,9 @@ def fator_capacidade(fonte):
 def carregar_dados():
     """
     Aqui eu carrego os dados oficiais da ANEEL.
-    Usei cache para evitar baixar a base toda vez que o usuário faz uma consulta.
+
+    Usei cache para evitar baixar a base várias vezes seguidas,
+    deixando o dashboard mais rápido.
     """
 
     agora = time.time()
@@ -201,18 +204,70 @@ def projetar_2027(serie):
     return max(0, float(previsao))
 
 
-@app.route("/api/resumo")
-def api_resumo():
-    fonte = request.args.get("fonte", "Todas")
+def calcular_crescimento_percentual(serie):
+    """
+    Calcula o crescimento percentual comparando os dois últimos anos com dados.
+    """
 
-    df = carregar_dados()
-    dados = filtrar_dados(df, "TODOS", fonte)
+    serie = serie[serie > 0].dropna()
+
+    if len(serie) < 2:
+        return 0
+
+    ultimo = float(serie.iloc[-1])
+    anterior = float(serie.iloc[-2])
+
+    if anterior == 0:
+        return 0
+
+    return ((ultimo - anterior) / anterior) * 100
+
+
+def resumo_por_fonte(df, fonte):
+    """
+    Monta os dados dos cards de Solar, Eólica e Total.
+    """
+
+    if fonte == "Todas":
+        dados = df.copy()
+    else:
+        dados = df[df["fonte_padronizada"] == fonte].copy()
 
     total_mw = dados["potencia_kw"].sum() / 1000
-    producao = total_mw * 8760 * fator_capacidade(fonte)
+    producao_mwh = total_mw * 8760 * fator_capacidade(fonte)
+
+    serie = serie_capacidade_anual(dados).tail(6)
+    crescimento = calcular_crescimento_percentual(serie)
+
+    return {
+        "capacidade_mw": round(float(total_mw), 2),
+        "producao_mwh": round(float(producao_mwh), 2),
+        "crescimento": round(float(crescimento), 2),
+        "mini_labels": [str(ano) for ano in serie.index],
+        "mini_valores": [round(float(valor), 2) for valor in serie.values]
+    }
+
+
+@app.route("/api/resumo")
+def api_resumo():
+    """
+    Retorna os cards principais do dashboard.
+
+    Agora os cards ficam mais claros:
+    - Solar no Nordeste
+    - Eólica no Nordeste
+    - Total Solar + Eólica
+    - Estado líder
+    """
+
+    df = carregar_dados()
+
+    solar = resumo_por_fonte(df, "Solar")
+    eolica = resumo_por_fonte(df, "Eólica")
+    total = resumo_por_fonte(df, "Todas")
 
     ranking = (
-        dados.groupby("sigufprincipal")["potencia_kw"]
+        df.groupby("sigufprincipal")["potencia_kw"]
         .sum()
         .sort_values(ascending=False) / 1000
     )
@@ -225,11 +280,12 @@ def api_resumo():
         lider_mw = float(ranking.iloc[0])
 
     return jsonify({
-        "total_mw": round(float(total_mw), 2),
-        "producao_anual": round(float(producao), 2),
+        "solar": solar,
+        "eolica": eolica,
+        "total": total,
         "lider": lider,
         "lider_mw": round(float(lider_mw), 2),
-        "registros": int(len(dados))
+        "registros": int(len(df))
     })
 
 
@@ -453,6 +509,38 @@ def api_analise():
         return jsonify({"resposta": texto})
 
     return jsonify({"resposta": "Tipo de análise não reconhecido."})
+
+
+@app.route("/api/insight")
+def api_insight():
+    """
+    Gera um insight automático para deixar o dashboard mais parecido com uma análise de BI.
+    """
+
+    df = carregar_dados()
+
+    solar = resumo_por_fonte(df, "Solar")
+    eolica = resumo_por_fonte(df, "Eólica")
+    total = resumo_por_fonte(df, "Todas")
+
+    ranking = (
+        df.groupby("sigufprincipal")["potencia_kw"]
+        .sum()
+        .sort_values(ascending=False) / 1000
+    )
+
+    lider = nome_estado(ranking.index[0])
+    lider_mw = float(ranking.iloc[0])
+
+    texto = (
+        f"Insight automático:\n\n"
+        f"O Nordeste possui {total['capacidade_mw']:.2f} MW somando energia solar e eólica. "
+        f"A energia solar representa {solar['capacidade_mw']:.2f} MW, enquanto a eólica soma "
+        f"{eolica['capacidade_mw']:.2f} MW. O estado líder é {lider}, com {lider_mw:.2f} MW. "
+        f"Esse comportamento mostra a importância do Nordeste na expansão das fontes renováveis no Brasil."
+    )
+
+    return jsonify({"insight": texto})
 
 
 if __name__ == "__main__":

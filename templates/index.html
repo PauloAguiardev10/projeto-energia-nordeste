@@ -129,7 +129,7 @@ body {
     background: rgba(15, 23, 42, 0.95);
     border: 1px solid #334155;
     border-radius: 24px;
-    padding: 22px;
+    padding: 18px;
     box-shadow: 0 20px 45px rgba(0,0,0,0.35);
     animation: subir 0.6s ease;
 }
@@ -142,13 +142,24 @@ body {
 .metric h2 {
     color: #38bdf8;
     margin: 10px 0 4px;
-    font-size: 28px;
+    font-size: 25px;
 }
 
 .metric p {
     margin: 0;
     color: #cbd5e1;
     font-size: 13px;
+}
+
+.metric-growth {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #22c55e;
+}
+
+.mini-chart {
+    height: 45px;
+    margin-top: 10px;
 }
 
 .panel {
@@ -234,7 +245,8 @@ select {
     margin-top: 0;
 }
 
-#resposta {
+#resposta,
+#insightPowerBI {
     white-space: pre-line;
     line-height: 1.55;
     max-height: 470px;
@@ -374,27 +386,34 @@ footer {
 
     <section class="metrics">
         <div class="metric">
-            <span>Capacidade total</span>
-            <h2 id="cardCapacidade">--</h2>
-            <p>MW instalados</p>
+            <span>☀️ Solar no Nordeste</span>
+            <h2 id="cardSolarMw">--</h2>
+            <p id="cardSolarMwh">--</p>
+            <div class="metric-growth" id="cardSolarCrescimento">--</div>
+            <div class="mini-chart"><canvas id="miniSolar"></canvas></div>
         </div>
 
         <div class="metric">
-            <span>Produção estimada</span>
-            <h2 id="cardProducao">--</h2>
-            <p>MWh/ano</p>
+            <span>🌬️ Eólica no Nordeste</span>
+            <h2 id="cardEolicaMw">--</h2>
+            <p id="cardEolicaMwh">--</p>
+            <div class="metric-growth" id="cardEolicaCrescimento">--</div>
+            <div class="mini-chart"><canvas id="miniEolica"></canvas></div>
         </div>
 
         <div class="metric">
-            <span>Estado líder</span>
+            <span>⚡ Total Solar + Eólica</span>
+            <h2 id="cardTotalMw">--</h2>
+            <p id="cardTotalMwh">--</p>
+            <div class="metric-growth" id="cardTotalCrescimento">--</div>
+            <div class="mini-chart"><canvas id="miniTotal"></canvas></div>
+        </div>
+
+        <div class="metric">
+            <span>🏆 Estado líder</span>
             <h2 id="cardLider">--</h2>
-            <p id="cardLiderMw">-- MW</p>
-        </div>
-
-        <div class="metric">
-            <span>Registros</span>
-            <h2 id="cardRegistros">--</h2>
-            <p>empreendimentos analisados</p>
+            <p id="cardLiderMw">--</p>
+            <div class="metric-growth" id="cardRegistros">--</div>
         </div>
     </section>
 
@@ -445,6 +464,11 @@ footer {
     </section>
 
     <section class="card compare">
+        <h2>Insight estilo Power BI</h2>
+        <p id="insightPowerBI">Carregando insight automático...</p>
+    </section>
+
+    <section class="card compare">
         <h2>Comparação lado a lado dos estados</h2>
         <div class="compare-grid" id="comparativoEstados"></div>
     </section>
@@ -460,6 +484,9 @@ footer {
 <script>
 let tipoAtual = "expansao_usinas";
 let grafico = null;
+let miniSolarChart = null;
+let miniEolicaChart = null;
+let miniTotalChart = null;
 
 const cores = [
     "#38bdf8", "#22c55e", "#facc15", "#fb7185", "#a78bfa",
@@ -470,6 +497,20 @@ function formatarNumero(valor) {
     return Number(valor).toLocaleString("pt-BR", {
         maximumFractionDigits: 2
     });
+}
+
+function textoCrescimento(valor) {
+    const numero = Number(valor);
+
+    if (numero > 0) {
+        return `▲ Crescimento recente: ${formatarNumero(numero)}%`;
+    }
+
+    if (numero < 0) {
+        return `▼ Queda recente: ${formatarNumero(numero)}%`;
+    }
+
+    return "Sem variação recente";
 }
 
 function selecionarTipo(tipo, botao) {
@@ -504,17 +545,103 @@ function pegarEstadosSelecionados() {
     return estados;
 }
 
-function atualizarCards() {
-    const fonte = document.getElementById("fonte").value;
+function criarMiniGrafico(idCanvas, chartAtual, labels, valores, cor) {
+    const ctx = document.getElementById(idCanvas).getContext("2d");
 
-    return fetch(`/api/resumo?fonte=${encodeURIComponent(fonte)}`)
+    if (chartAtual) {
+        chartAtual.destroy();
+    }
+
+    return new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [{
+                data: valores,
+                borderColor: cor,
+                backgroundColor: cor + "44",
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false }
+            },
+            scales: {
+                x: { display: false },
+                y: { display: false }
+            }
+        }
+    });
+}
+
+function atualizarCards() {
+    return fetch("/api/resumo")
         .then(res => res.json())
         .then(data => {
-            document.getElementById("cardCapacidade").innerText = formatarNumero(data.total_mw);
-            document.getElementById("cardProducao").innerText = formatarNumero(data.producao_anual);
+            document.getElementById("cardSolarMw").innerText =
+                formatarNumero(data.solar.capacidade_mw) + " MW";
+
+            document.getElementById("cardSolarMwh").innerText =
+                formatarNumero(data.solar.producao_mwh) + " MWh/ano";
+
+            document.getElementById("cardSolarCrescimento").innerText =
+                textoCrescimento(data.solar.crescimento);
+
+
+            document.getElementById("cardEolicaMw").innerText =
+                formatarNumero(data.eolica.capacidade_mw) + " MW";
+
+            document.getElementById("cardEolicaMwh").innerText =
+                formatarNumero(data.eolica.producao_mwh) + " MWh/ano";
+
+            document.getElementById("cardEolicaCrescimento").innerText =
+                textoCrescimento(data.eolica.crescimento);
+
+
+            document.getElementById("cardTotalMw").innerText =
+                formatarNumero(data.total.capacidade_mw) + " MW";
+
+            document.getElementById("cardTotalMwh").innerText =
+                formatarNumero(data.total.producao_mwh) + " MWh/ano";
+
+            document.getElementById("cardTotalCrescimento").innerText =
+                textoCrescimento(data.total.crescimento);
+
+
             document.getElementById("cardLider").innerText = data.lider;
-            document.getElementById("cardLiderMw").innerText = `${formatarNumero(data.lider_mw)} MW`;
-            document.getElementById("cardRegistros").innerText = formatarNumero(data.registros);
+            document.getElementById("cardLiderMw").innerText = formatarNumero(data.lider_mw) + " MW";
+            document.getElementById("cardRegistros").innerText = formatarNumero(data.registros) + " registros analisados";
+
+            miniSolarChart = criarMiniGrafico(
+                "miniSolar",
+                miniSolarChart,
+                data.solar.mini_labels,
+                data.solar.mini_valores,
+                "#facc15"
+            );
+
+            miniEolicaChart = criarMiniGrafico(
+                "miniEolica",
+                miniEolicaChart,
+                data.eolica.mini_labels,
+                data.eolica.mini_valores,
+                "#38bdf8"
+            );
+
+            miniTotalChart = criarMiniGrafico(
+                "miniTotal",
+                miniTotalChart,
+                data.total.mini_labels,
+                data.total.mini_valores,
+                "#22c55e"
+            );
         });
 }
 
@@ -526,6 +653,14 @@ function atualizarAnalise() {
         .then(res => res.json())
         .then(data => {
             document.getElementById("resposta").innerText = data.resposta;
+        });
+}
+
+function atualizarInsightPowerBI() {
+    return fetch("/api/insight")
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("insightPowerBI").innerText = data.insight;
         });
 }
 
@@ -623,7 +758,8 @@ function atualizarTudo() {
         atualizarCards(),
         atualizarAnalise(),
         atualizarGrafico(),
-        atualizarComparativo()
+        atualizarComparativo(),
+        atualizarInsightPowerBI()
     ]).finally(() => {
         document.getElementById("loading").style.display = "none";
     });
