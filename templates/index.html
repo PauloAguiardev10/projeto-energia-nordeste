@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Dashboard Energia Nordeste - Big Data</title>
+<title>Dashboard Energia Nordeste</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 * {
@@ -17,176 +19,145 @@ body {
     color: white;
 }
 
-.hero {
+.app {
     min-height: 100vh;
+    display: grid;
+    grid-template-columns: 260px 1fr;
+}
+
+.sidebar {
+    background: rgba(15, 23, 42, 0.98);
+    border-right: 1px solid #334155;
+    padding: 24px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.logo span {
+    color: #38bdf8;
+}
+
+.sidebar p {
+    color: #94a3b8;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.menu-title {
+    color: #38bdf8;
+    margin-top: 30px;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.nav-btn {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 13px;
+    border: 1px solid #334155;
+    background: #020617;
+    color: #e2e8f0;
+    border-radius: 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: 0.2s;
+}
+
+.nav-btn:hover {
+    transform: translateX(4px);
+    border-color: #38bdf8;
+}
+
+.nav-btn.active {
+    background: linear-gradient(135deg, #22c55e, #38bdf8);
+    color: #052e16;
+    font-weight: bold;
+}
+
+.main {
+    padding: 28px;
     background:
         linear-gradient(rgba(2, 6, 23, 0.88), rgba(2, 6, 23, 0.98)),
         url("https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1800&q=80");
     background-size: cover;
     background-position: center;
-    padding: 35px;
 }
 
-.container {
-    max-width: 1320px;
-    margin: auto;
+.header {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: flex-start;
+    margin-bottom: 24px;
 }
 
-header {
-    text-align: center;
-    margin-bottom: 28px;
+.header h1 {
+    margin: 0;
+    font-size: 36px;
+}
+
+.header p {
+    color: #cbd5e1;
+    max-width: 760px;
+    line-height: 1.5;
 }
 
 .badge {
-    display: inline-block;
     background: rgba(56, 189, 248, 0.15);
-    border: 1px solid #38bdf8;
     color: #7dd3fc;
-    padding: 8px 14px;
+    border: 1px solid #38bdf8;
+    padding: 9px 14px;
     border-radius: 999px;
-    font-size: 14px;
-    margin-bottom: 12px;
-}
-
-header h1 {
-    font-size: 44px;
-    margin: 8px 0;
-}
-
-header p {
-    color: #cbd5e1;
-    font-size: 18px;
-    line-height: 1.5;
-    max-width: 900px;
-    margin: auto;
+    white-space: nowrap;
 }
 
 .metrics {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 18px;
-    margin: 28px 0;
+    margin-bottom: 22px;
 }
 
-.metric-card {
-    background: rgba(15, 23, 42, 0.94);
+.metric {
+    background: rgba(15, 23, 42, 0.95);
     border: 1px solid #334155;
-    border-radius: 22px;
+    border-radius: 24px;
     padding: 22px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    box-shadow: 0 20px 45px rgba(0,0,0,0.35);
+    animation: subir 0.6s ease;
 }
 
-.metric-card span {
+.metric span {
     color: #94a3b8;
     font-size: 14px;
 }
 
-.metric-card h2 {
-    margin: 10px 0 4px;
+.metric h2 {
     color: #38bdf8;
+    margin: 10px 0 4px;
     font-size: 28px;
 }
 
-.metric-card p {
+.metric p {
     margin: 0;
     color: #cbd5e1;
-    font-size: 14px;
-}
-
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
-    margin-bottom: 25px;
-}
-
-.info {
-    border-radius: 22px;
-    padding: 20px;
-    min-height: 170px;
-    background-size: cover;
-    background-position: center;
-    position: relative;
-    overflow: hidden;
-    border: 1px solid #334155;
-}
-
-.info::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.88));
-}
-
-.info div {
-    position: absolute;
-    bottom: 18px;
-    left: 18px;
-    right: 18px;
-    z-index: 2;
-}
-
-.info h2 {
-    margin: 0 0 8px;
-}
-
-.info p {
-    margin: 0;
-    color: #e2e8f0;
-}
-
-.solar {
-    background-image: url("https://images.unsplash.com/photo-1508514177221-188b1cf16e9d?auto=format&fit=crop&w=1000&q=80");
-}
-
-.eolica {
-    background-image: url("https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=1000&q=80");
-}
-
-.base {
-    background: linear-gradient(135deg, #0f172a, #1e293b);
+    font-size: 13px;
 }
 
 .panel {
     background: rgba(15, 23, 42, 0.95);
     border: 1px solid #334155;
-    padding: 25px;
     border-radius: 24px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.45);
-    margin-bottom: 25px;
-}
-
-.buttons {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
-    margin-bottom: 25px;
-}
-
-button {
-    padding: 15px;
-    border: none;
-    border-radius: 14px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 15px;
-    transition: 0.2s;
-}
-
-button:hover {
-    transform: scale(1.02);
-}
-
-.btn {
-    background: #1e293b;
-    color: #e2e8f0;
-    border: 1px solid #475569;
-}
-
-.btn.active {
-    background: #22c55e;
-    color: #052e16;
-    border: 1px solid #86efac;
+    padding: 22px;
+    margin-bottom: 22px;
+    animation: aparecer 0.7s ease;
 }
 
 .filters {
@@ -196,17 +167,10 @@ button:hover {
     align-items: center;
 }
 
-.checkbox-box {
-    background: #020617;
-    border: 1px solid #334155;
-    border-radius: 18px;
-    padding: 15px;
-}
-
 .checkbox-title {
     color: #38bdf8;
     font-weight: bold;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
 }
 
 .checkbox-grid {
@@ -216,10 +180,10 @@ button:hover {
 }
 
 .checkbox-grid label {
-    background: #0f172a;
+    background: #020617;
     border: 1px solid #334155;
+    border-radius: 14px;
     padding: 10px;
-    border-radius: 12px;
     cursor: pointer;
     font-size: 14px;
 }
@@ -228,101 +192,134 @@ button:hover {
     border-color: #38bdf8;
 }
 
-.checkbox-grid input {
-    margin-right: 6px;
-}
-
 select {
+    width: 100%;
     padding: 14px;
-    border-radius: 12px;
+    border-radius: 14px;
     border: none;
     font-size: 15px;
-    width: 100%;
 }
 
 .action {
     background: #38bdf8;
     color: #082f49;
-    padding-left: 35px;
-    padding-right: 35px;
-    height: 50px;
+    border: none;
+    padding: 15px 32px;
+    border-radius: 14px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
-.status {
-    text-align: center;
-    color: #94a3b8;
-    margin-top: 16px;
+.action:hover {
+    transform: scale(1.03);
 }
 
-.dashboard-area {
+.grid {
     display: grid;
-    grid-template-columns: 1fr 1.45fr;
-    gap: 25px;
+    grid-template-columns: 1.15fr 1.85fr;
+    gap: 22px;
 }
 
 .card {
-    background: rgba(15, 23, 42, 0.95);
+    background: rgba(15, 23, 42, 0.96);
     border: 1px solid #334155;
     border-radius: 24px;
-    padding: 24px;
-    box-shadow: 0 15px 40px rgba(0,0,0,0.35);
+    padding: 22px;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.35);
+    animation: subir 0.7s ease;
 }
 
 .card h2 {
-    margin-top: 0;
     color: #38bdf8;
+    margin-top: 0;
 }
 
 #resposta {
     white-space: pre-line;
     line-height: 1.55;
-    font-size: 16px;
-    max-height: 560px;
+    max-height: 470px;
     overflow-y: auto;
 }
 
-#grafico {
-    width: 100%;
+.chart-box {
+    height: 430px;
+}
+
+.compare {
+    margin-top: 22px;
+}
+
+.compare-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+
+.compare-card {
+    background: #020617;
+    border: 1px solid #334155;
     border-radius: 18px;
-    background: white;
-    padding: 8px;
-    display: none;
+    padding: 16px;
+}
+
+.compare-card h3 {
+    margin: 0 0 10px;
+    color: #38bdf8;
+}
+
+.compare-card p {
+    margin: 6px 0;
+    color: #cbd5e1;
 }
 
 .loading {
     display: none;
     color: #7dd3fc;
-    margin-top: 12px;
     text-align: center;
-}
-
-.observacao {
-    margin-top: 20px;
-    background: rgba(2, 6, 23, 0.75);
-    border: 1px solid #334155;
-    border-radius: 18px;
-    padding: 16px;
-    color: #cbd5e1;
-    line-height: 1.5;
-}
-
-.observacao strong {
-    color: #38bdf8;
+    margin-top: 12px;
 }
 
 footer {
-    text-align: center;
     color: #94a3b8;
-    margin-top: 30px;
+    text-align: center;
     font-size: 14px;
+    margin-top: 24px;
 }
 
-@media(max-width: 1000px) {
-    .buttons,
-    .dashboard-area,
-    .info-grid,
+@keyframes subir {
+    from {
+        opacity: 0;
+        transform: translateY(18px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes aparecer {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@media(max-width: 1050px) {
+    .app {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        height: auto;
+        position: relative;
+    }
+
+    .metrics,
     .filters,
-    .metrics {
+    .grid,
+    .compare-grid {
         grid-template-columns: 1fr;
     }
 
@@ -330,16 +327,12 @@ footer {
         grid-template-columns: 1fr 1fr;
     }
 
-    header h1 {
-        font-size: 31px;
+    .header {
+        flex-direction: column;
     }
 
-    .hero {
-        padding: 20px;
-    }
-
-    .action {
-        width: 100%;
+    .header h1 {
+        font-size: 29px;
     }
 }
 </style>
@@ -347,207 +340,167 @@ footer {
 
 <body>
 
-<div class="hero">
-<div class="container">
+<div class="app">
 
-<header>
-    <div class="badge">Projeto Big Data • Python • Flask • ANEEL</div>
-    <h1>⚡ Dashboard de Energia Renovável do Nordeste</h1>
+<aside class="sidebar">
+    <div class="logo">⚡ Energia<span>NE</span></div>
     <p>
-        Sistema web desenvolvido para analisar dados oficiais da ANEEL sobre energia solar e eólica,
-        com foco em capacidade instalada, produção estimada, projeção para 2027 e comparação entre estados.
+        Dashboard empresarial para análise de energia renovável no Nordeste,
+        utilizando dados oficiais da ANEEL.
     </p>
-</header>
 
-<section class="metrics">
-    <div class="metric-card">
-        <span>Capacidade total</span>
-        <h2 id="cardCapacidade">--</h2>
-        <p>MW instalados</p>
-    </div>
+    <div class="menu-title">Análises</div>
 
-    <div class="metric-card">
-        <span>Produção estimada</span>
-        <h2 id="cardProducao">--</h2>
-        <p>MWh/ano</p>
-    </div>
+    <button class="nav-btn active" onclick="selecionarTipo('expansao_usinas', this)">🏗️ Expansão de Usinas</button>
+    <button class="nav-btn" onclick="selecionarTipo('producao_mensal', this)">📆 Produção Mensal</button>
+    <button class="nav-btn" onclick="selecionarTipo('producao_anual', this)">📈 Produção Anual</button>
+    <button class="nav-btn" onclick="selecionarTipo('projecao_2027', this)">🔮 Projeção 2027</button>
+    <button class="nav-btn" onclick="selecionarTipo('ranking', this)">🏆 Ranking Nordeste</button>
+</aside>
 
-    <div class="metric-card">
-        <span>Estado líder</span>
-        <h2 id="cardLider">--</h2>
-        <p id="cardLiderMw">-- MW</p>
-    </div>
+<main class="main">
 
-    <div class="metric-card">
-        <span>Registros analisados</span>
-        <h2 id="cardUsinas">--</h2>
-        <p>empreendimentos filtrados</p>
-    </div>
-</section>
-
-<section class="info-grid">
-    <div class="info solar">
+    <section class="header">
         <div>
-            <h2>Energia Solar</h2>
-            <p>Análise da capacidade instalada e produção estimada de energia solar.</p>
+            <h1>Dashboard de Energia Renovável</h1>
+            <p>
+                Análise interativa de energia solar e eólica nos estados do Nordeste,
+                com indicadores, gráficos dinâmicos, comparação entre estados e projeção futura.
+            </p>
         </div>
-    </div>
+        <div class="badge">Python • Flask • ANEEL • Render</div>
+    </section>
 
-    <div class="info eolica">
-        <div>
-            <h2>Energia Eólica</h2>
-            <p>Comparação dos estados do Nordeste com foco em parques eólicos.</p>
+    <section class="metrics">
+        <div class="metric">
+            <span>Capacidade total</span>
+            <h2 id="cardCapacidade">--</h2>
+            <p>MW instalados</p>
         </div>
-    </div>
 
-    <div class="info base">
-        <div>
-            <h2>Base ANEEL</h2>
-            <p>Dados tratados com Python, Pandas, Flask e visualização gráfica.</p>
+        <div class="metric">
+            <span>Produção estimada</span>
+            <h2 id="cardProducao">--</h2>
+            <p>MWh/ano</p>
         </div>
-    </div>
-</section>
 
-<section class="panel">
+        <div class="metric">
+            <span>Estado líder</span>
+            <h2 id="cardLider">--</h2>
+            <p id="cardLiderMw">-- MW</p>
+        </div>
 
-    <div class="buttons">
-        <button class="btn active" onclick="selecionarTipo('capacidade_anual', this)">
-            Capacidade anual
-        </button>
+        <div class="metric">
+            <span>Registros</span>
+            <h2 id="cardRegistros">--</h2>
+            <p>empreendimentos analisados</p>
+        </div>
+    </section>
 
-        <button class="btn" onclick="selecionarTipo('producao_mensal', this)">
-            Produção mensal
-        </button>
-
-        <button class="btn" onclick="selecionarTipo('producao_anual', this)">
-            Produção anual
-        </button>
-
-        <button class="btn" onclick="selecionarTipo('projecao_2027', this)">
-            Projeção 2027
-        </button>
-
-        <button class="btn" onclick="selecionarTipo('ranking', this)">
-            Ranking Nordeste
-        </button>
-    </div>
-
-    <div class="filters">
-
-        <div class="checkbox-box" id="boxEstados">
-            <div class="checkbox-title" id="tituloEstados">
-                Selecione um ou mais estados para comparar
+    <section class="panel">
+        <div class="filters">
+            <div>
+                <div class="checkbox-title" id="tituloEstados">Selecione estados para comparar</div>
+                <div class="checkbox-grid" id="estadosContainer">
+                    <label><input type="checkbox" value="CE" checked> Ceará</label>
+                    <label><input type="checkbox" value="BA" checked> Bahia</label>
+                    <label><input type="checkbox" value="PI"> Piauí</label>
+                    <label><input type="checkbox" value="RN"> Rio Grande do Norte</label>
+                    <label><input type="checkbox" value="PE"> Pernambuco</label>
+                    <label><input type="checkbox" value="PB"> Paraíba</label>
+                    <label><input type="checkbox" value="MA"> Maranhão</label>
+                    <label><input type="checkbox" value="AL"> Alagoas</label>
+                    <label><input type="checkbox" value="SE"> Sergipe</label>
+                </div>
             </div>
 
-            <div class="checkbox-grid" id="estadosContainer">
-                <label><input type="checkbox" value="CE" checked> Ceará</label>
-                <label><input type="checkbox" value="BA"> Bahia</label>
-                <label><input type="checkbox" value="PI"> Piauí</label>
-                <label><input type="checkbox" value="RN"> Rio Grande do Norte</label>
-                <label><input type="checkbox" value="PE"> Pernambuco</label>
-                <label><input type="checkbox" value="PB"> Paraíba</label>
-                <label><input type="checkbox" value="MA"> Maranhão</label>
-                <label><input type="checkbox" value="AL"> Alagoas</label>
-                <label><input type="checkbox" value="SE"> Sergipe</label>
+            <div>
+                <div class="checkbox-title">Fonte</div>
+                <select id="fonte" onchange="atualizarTudo()">
+                    <option value="Todas">Solar + Eólica</option>
+                    <option value="Solar">Solar</option>
+                    <option value="Eólica">Eólica</option>
+                </select>
+            </div>
+
+            <button class="action" onclick="atualizarTudo()">Atualizar</button>
+        </div>
+
+        <div class="loading" id="loading">Carregando dados oficiais da ANEEL...</div>
+    </section>
+
+    <section class="grid">
+        <div class="card">
+            <h2>Insight automático</h2>
+            <p id="resposta">Carregando análise...</p>
+        </div>
+
+        <div class="card">
+            <h2>Gráfico interativo</h2>
+            <div class="chart-box">
+                <canvas id="graficoInterativo"></canvas>
             </div>
         </div>
+    </section>
 
-        <div>
-            <select id="fonte" onchange="atualizarCards()">
-                <option value="Todas">Solar + Eólica</option>
-                <option value="Solar">Solar</option>
-                <option value="Eólica">Eólica</option>
-            </select>
-        </div>
+    <section class="card compare">
+        <h2>Comparação lado a lado dos estados</h2>
+        <div class="compare-grid" id="comparativoEstados"></div>
+    </section>
 
-        <button class="action" onclick="consultar()">Consultar</button>
+    <footer>
+        Projeto Big Data • Dados oficiais da ANEEL • Dashboard online e responsivo
+    </footer>
 
-    </div>
+</main>
 
-    <div class="status" id="status">
-        Escolha uma análise e clique em consultar.
-    </div>
-
-    <div class="loading" id="loading">
-        Carregando dados oficiais da ANEEL...
-    </div>
-
-</section>
-
-<section class="dashboard-area">
-
-    <div class="card">
-        <h2>Resultado da análise</h2>
-        <p id="resposta">
-            Aqui será exibido o resultado da análise com base nos filtros selecionados.
-        </p>
-
-        <div class="observacao">
-            <strong>Observação:</strong>
-            Neste projeto, a capacidade instalada vem da base oficial da ANEEL.
-            A produção é estimada usando fatores médios de capacidade para energia solar e eólica.
-            A projeção para 2027 utiliza uma tendência linear simples com base nos anos anteriores.
-        </div>
-    </div>
-
-    <div class="card">
-        <h2>Visualização gráfica</h2>
-        <img id="grafico">
-    </div>
-
-</section>
-
-<footer>
-    Desenvolvido para a disciplina de Big Data • Dados oficiais da ANEEL • Dashboard web responsivo
-</footer>
-
-</div>
 </div>
 
 <script>
+let tipoAtual = "expansao_usinas";
+let grafico = null;
 
-let tipoAtual = "capacidade_anual";
+const cores = [
+    "#38bdf8", "#22c55e", "#facc15", "#fb7185", "#a78bfa",
+    "#f97316", "#14b8a6", "#e879f9", "#94a3b8"
+];
+
+function formatarNumero(valor) {
+    return Number(valor).toLocaleString("pt-BR", {
+        maximumFractionDigits: 2
+    });
+}
 
 function selecionarTipo(tipo, botao) {
     tipoAtual = tipo;
 
-    document.querySelectorAll(".btn").forEach(btn => {
-        btn.classList.remove("active");
-    });
-
+    document.querySelectorAll(".nav-btn").forEach(btn => btn.classList.remove("active"));
     botao.classList.add("active");
 
-    const boxEstados = document.getElementById("boxEstados");
-    const tituloEstados = document.getElementById("tituloEstados");
     const inputs = document.querySelectorAll("#estadosContainer input");
+    const titulo = document.getElementById("tituloEstados");
 
-    if (tipo === "ranking") {
-        boxEstados.style.opacity = "0.55";
-        tituloEstados.innerText = "No ranking, todos os estados são comparados automaticamente";
-
-        inputs.forEach(input => {
-            input.disabled = true;
-        });
+    if (tipoAtual === "ranking") {
+        titulo.innerText = "No ranking, todos os estados são comparados automaticamente";
+        inputs.forEach(input => input.disabled = true);
     } else {
-        boxEstados.style.opacity = "1";
-        tituloEstados.innerText = "Selecione um ou mais estados para comparar";
-
-        inputs.forEach(input => {
-            input.disabled = false;
-        });
+        titulo.innerText = "Selecione estados para comparar";
+        inputs.forEach(input => input.disabled = false);
     }
+
+    atualizarTudo();
 }
 
 function pegarEstadosSelecionados() {
-    const selecionados = Array.from(
+    const estados = Array.from(
         document.querySelectorAll("#estadosContainer input:checked")
     ).map(input => input.value);
 
-    if (selecionados.length === 0) {
+    if (estados.length === 0) {
         return ["CE"];
     }
 
-    return selecionados;
+    return estados;
 }
 
 function atualizarCards() {
@@ -556,59 +509,130 @@ function atualizarCards() {
     fetch(`/api/resumo?fonte=${encodeURIComponent(fonte)}`)
         .then(res => res.json())
         .then(data => {
-            document.getElementById("cardCapacidade").innerText = data.total_mw;
-            document.getElementById("cardProducao").innerText = data.producao_anual;
+            document.getElementById("cardCapacidade").innerText = formatarNumero(data.total_mw);
+            document.getElementById("cardProducao").innerText = formatarNumero(data.producao_anual);
             document.getElementById("cardLider").innerText = data.lider;
-            document.getElementById("cardLiderMw").innerText = `${data.lider_mw} MW`;
-            document.getElementById("cardUsinas").innerText = data.total_usinas;
-        })
-        .catch(() => {
-            document.getElementById("cardCapacidade").innerText = "--";
-            document.getElementById("cardProducao").innerText = "--";
-            document.getElementById("cardLider").innerText = "--";
-            document.getElementById("cardUsinas").innerText = "--";
+            document.getElementById("cardLiderMw").innerText = `${formatarNumero(data.lider_mw)} MW`;
+            document.getElementById("cardRegistros").innerText = formatarNumero(data.registros);
         });
 }
 
-function consultar() {
-    const estado = tipoAtual === "ranking"
-        ? "TODOS"
-        : pegarEstadosSelecionados().join(",");
-
+function atualizarAnalise() {
+    const estado = tipoAtual === "ranking" ? "TODOS" : pegarEstadosSelecionados().join(",");
     const fonte = document.getElementById("fonte").value;
 
-    document.getElementById("loading").style.display = "block";
-    document.getElementById("status").innerText = "Buscando dados oficiais da ANEEL...";
-    document.getElementById("resposta").innerText = "Processando análise...";
-    document.getElementById("grafico").style.display = "none";
-
-    const url = `/api/analise?tipo=${tipoAtual}&estado=${estado}&fonte=${encodeURIComponent(fonte)}`;
-
-    fetch(url)
+    return fetch(`/api/analise?tipo=${tipoAtual}&estado=${estado}&fonte=${encodeURIComponent(fonte)}`)
         .then(res => res.json())
         .then(data => {
             document.getElementById("resposta").innerText = data.resposta;
-
-            const grafico = document.getElementById("grafico");
-            grafico.src = data.grafico_url + "&t=" + new Date().getTime();
-            grafico.style.display = "block";
-
-            document.getElementById("loading").style.display = "none";
-            document.getElementById("status").innerText = "Análise concluída com sucesso.";
-            atualizarCards();
-        })
-        .catch(() => {
-            document.getElementById("loading").style.display = "none";
-            document.getElementById("resposta").innerText =
-                "Não foi possível conectar com a API. Aguarde alguns segundos e tente novamente.";
-            document.getElementById("status").innerText = "Erro de conexão com o servidor.";
         });
 }
 
-selecionarTipo("capacidade_anual", document.querySelector(".btn.active"));
-atualizarCards();
-consultar();
+function atualizarGrafico() {
+    const estado = tipoAtual === "ranking" ? "TODOS" : pegarEstadosSelecionados().join(",");
+    const fonte = document.getElementById("fonte").value;
 
+    return fetch(`/api/dados_grafico?tipo=${tipoAtual}&estado=${estado}&fonte=${encodeURIComponent(fonte)}`)
+        .then(res => res.json())
+        .then(data => {
+            const ctx = document.getElementById("graficoInterativo").getContext("2d");
+
+            if (grafico) {
+                grafico.destroy();
+            }
+
+            const datasets = data.datasets.map((dataset, index) => ({
+                label: dataset.label,
+                data: dataset.data,
+                borderColor: cores[index % cores.length],
+                backgroundColor: cores[index % cores.length] + "55",
+                borderWidth: 3,
+                tension: 0.35,
+                fill: data.tipo_grafico === "line" ? false : true
+            }));
+
+            grafico = new Chart(ctx, {
+                type: data.tipo_grafico,
+                data: {
+                    labels: data.labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1200,
+                        easing: "easeOutQuart"
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: "#e2e8f0"
+                            }
+                        },
+                        tooltip: {
+                            enabled: true
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: "#cbd5e1" },
+                            grid: { color: "rgba(148,163,184,0.15)" }
+                        },
+                        y: {
+                            ticks: { color: "#cbd5e1" },
+                            grid: { color: "rgba(148,163,184,0.15)" }
+                        }
+                    }
+                }
+            });
+        });
+}
+
+function atualizarComparativo() {
+    const fonte = document.getElementById("fonte").value;
+    const estados = pegarEstadosSelecionados().join(",");
+
+    return fetch(`/api/comparativo?estado=${estados}&fonte=${encodeURIComponent(fonte)}`)
+        .then(res => res.json())
+        .then(data => {
+            const container = document.getElementById("comparativoEstados");
+            container.innerHTML = "";
+
+            data.forEach(item => {
+                const card = document.createElement("div");
+                card.className = "compare-card";
+
+                card.innerHTML = `
+                    <h3>${item.estado}</h3>
+                    <p><strong>Capacidade:</strong> ${formatarNumero(item.capacidade_mw)} MW</p>
+                    <p><strong>Produção:</strong> ${formatarNumero(item.producao_mwh)} MWh/ano</p>
+                    <p><strong>Registros:</strong> ${formatarNumero(item.registros)}</p>
+                `;
+
+                container.appendChild(card);
+            });
+        });
+}
+
+function atualizarTudo() {
+    document.getElementById("loading").style.display = "block";
+
+    Promise.all([
+        atualizarCards(),
+        atualizarAnalise(),
+        atualizarGrafico(),
+        atualizarComparativo()
+    ]).finally(() => {
+        document.getElementById("loading").style.display = "none";
+    });
+}
+
+document.querySelectorAll("#estadosContainer input").forEach(input => {
+    input.addEventListener("change", atualizarTudo);
+});
+
+atualizarTudo();
 </script>
 
 </body>
