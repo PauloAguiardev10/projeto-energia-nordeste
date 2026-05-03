@@ -5,25 +5,39 @@
 <title>Energia Nordeste</title>
 
 <style>
-body{
+body {
     margin:0;
     font-family:Arial;
     background:#020617;
     color:white;
+}
+
+.container{
+    max-width:900px;
+    margin:auto;
+    padding:20px;
     text-align:center;
 }
 
 h1{
-    margin-top:40px;
+    margin-bottom:10px;
+}
+
+.botoes{
+    margin:20px 0;
 }
 
 button{
-    padding:15px;
-    margin:20px;
-    font-size:16px;
+    padding:12px 20px;
+    margin:5px;
     border:none;
-    border-radius:10px;
+    border-radius:8px;
     cursor:pointer;
+    background:#1e293b;
+    color:white;
+}
+
+button.ativo{
     background:#38bdf8;
     color:#082f49;
 }
@@ -32,50 +46,115 @@ button:hover{
     transform:scale(1.05);
 }
 
-pre{
-    text-align:left;
-    max-width:600px;
-    margin:auto;
+.estados{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin:20px 0;
+}
+
+.estados label{
     background:#0f172a;
-    padding:20px;
-    border-radius:10px;
+    padding:10px;
+    border-radius:8px;
+    cursor:pointer;
+}
+
+select{
+    padding:10px;
+    border-radius:8px;
+    margin:10px;
+}
+
+pre{
+    background:#0f172a;
+    padding:15px;
+    border-radius:8px;
+    text-align:left;
 }
 
 img{
     margin-top:20px;
+    max-width:100%;
     border-radius:10px;
     background:white;
-    padding:5px;
 }
 </style>
-
 </head>
 
 <body>
 
+<div class="container">
+
 <h1>⚡ Energia Renovável no Nordeste</h1>
 
 <p>
-Projeto de Big Data utilizando dados da ANEEL para análise
-de energia solar e eólica.
+Sistema de análise utilizando dados da ANEEL para estudo da energia solar e eólica.
 </p>
 
-<button onclick="carregar()">Carregar Análise</button>
+<!-- BOTÕES -->
+<div class="botoes">
+<button onclick="setTipo('ranking', this)">Ranking</button>
+</div>
+
+<!-- ESTADOS -->
+<div class="estados">
+<label><input type="checkbox" value="CE"> Ceará</label>
+<label><input type="checkbox" value="BA"> Bahia</label>
+<label><input type="checkbox" value="PI"> Piauí</label>
+<label><input type="checkbox" value="RN"> RN</label>
+<label><input type="checkbox" value="PE"> PE</label>
+<label><input type="checkbox" value="PB"> PB</label>
+<label><input type="checkbox" value="MA"> MA</label>
+<label><input type="checkbox" value="AL"> AL</label>
+<label><input type="checkbox" value="SE"> SE</label>
+</div>
+
+<!-- FONTE -->
+<select id="fonte">
+<option value="Todas">Todas</option>
+<option value="Solar">Solar</option>
+<option value="Eólica">Eólica</option>
+</select>
+
+<br>
+
+<button onclick="consultar()">Consultar</button>
 
 <pre id="resposta"></pre>
 
-<img id="grafico" width="600">
+<img id="grafico">
+
+</div>
 
 <script>
 
-function carregar(){
+let tipo = "ranking"
 
-fetch("/api/analise")
-.then(r=>r.json())
-.then(d=>{
-    document.getElementById("resposta").innerText = d.resposta
-    document.getElementById("grafico").src = d.grafico_url
-})
+function setTipo(t, btn){
+    tipo = t
+
+    document.querySelectorAll(".botoes button")
+    .forEach(b=>b.classList.remove("ativo"))
+
+    btn.classList.add("ativo")
+}
+
+function consultar(){
+
+    let estados = Array.from(document.querySelectorAll("input:checked"))
+    .map(e=>e.value).join(",")
+
+    if(!estados) estados = "TODOS"
+
+    let fonte = document.getElementById("fonte").value
+
+    fetch(`/api/analise?tipo=${tipo}&estado=${estados}&fonte=${fonte}`)
+    .then(r=>r.json())
+    .then(d=>{
+        document.getElementById("resposta").innerText = d.resposta
+        document.getElementById("grafico").src = d.grafico_url
+    })
 }
 
 </script>
