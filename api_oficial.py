@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 import io
 import time
 import numpy as np
+import os
 
 app = Flask(__name__)
 
@@ -68,11 +69,15 @@ CACHE = {
 
 @app.after_request
 def permitir_frontend(response):
-    # Permite que o dashboard HTML consiga acessar a API Flask local.
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
+
+
+@app.route("/")
+def home():
+    return render_template("index.html")
 
 
 def nome_estado(uf):
@@ -84,14 +89,6 @@ def nomes_estados(lista_ufs):
 
 
 def fator_capacidade(fonte):
-    """
-    Fatores médios usados para estimar produção.
-
-    Solar: 22%
-    Eólica: 45%
-    Solar + Eólica: 33% como média simplificada
-    """
-
     if fonte == "Solar":
         return 0.22
 
@@ -102,13 +99,6 @@ def fator_capacidade(fonte):
 
 
 def carregar_dados():
-    """
-    Aqui eu carrego os dados oficiais da ANEEL.
-
-    Usei cache de 30 minutos para melhorar o desempenho,
-    evitando baixar a base toda vez que o usuário clicar em consultar.
-    """
-
     agora = time.time()
 
     if CACHE["df"] is not None and agora - CACHE["hora"] < 1800:
@@ -117,23 +107,19 @@ def carregar_dados():
     df = pd.read_csv(URL_SIGA, sep=";", encoding="latin-1", low_memory=False)
     df.columns = [c.strip().lower() for c in df.columns]
 
-    # Filtro apenas os estados do Nordeste.
     df = df[df["sigufprincipal"].isin(ESTADOS.keys())].copy()
 
-    # Transformo potência em número.
     df["potencia_kw"] = pd.to_numeric(
         df["mdapotenciafiscalizadakw"],
         errors="coerce"
     ).fillna(0)
 
-    # Transformo a data em formato reconhecido pelo Python.
     df["data_operacao"] = pd.to_datetime(
         df["datentradaoperacao"],
         errors="coerce",
         format="mixed"
     )
 
-    # Crio campos auxiliares para identificar solar e eólica.
     df["fonte_original"] = df["nomfontecombustivel"].astype(str).str.lower()
     df["tipo_original"] = df["sigtipogeracao"].astype(str).str.lower()
 
@@ -150,9 +136,6 @@ def carregar_dados():
         return "Outros"
 
     df["fonte_padronizada"] = df.apply(classificar_fonte, axis=1)
-
-    # Como o projeto é sobre energia renovável solar e eólica,
-    # mantenho somente essas duas fontes.
     df = df[df["fonte_padronizada"].isin(["Solar", "Eólica"])].copy()
 
     CACHE["df"] = df.copy()
@@ -162,13 +145,6 @@ def carregar_dados():
 
 
 def preparar_estados(estado):
-    """
-    Recebe os estados enviados pelo dashboard.
-
-    Quando o usuário escolhe mais de um estado,
-    eles chegam separados por vírgula.
-    """
-
     if not estado or estado == "TODOS":
         return list(ESTADOS.keys())
 
@@ -176,10 +152,6 @@ def preparar_estados(estado):
 
 
 def filtrar_dados(df, estado, fonte):
-    """
-    Aplica os filtros de estado e fonte escolhidos no dashboard.
-    """
-
     dados = df.copy()
     lista_estados = preparar_estados(estado)
 
@@ -192,11 +164,6 @@ def filtrar_dados(df, estado, fonte):
 
 
 def serie_capacidade_anual(dados):
-    """
-    Agrupa a capacidade instalada por ano.
-    O valor representa MW adicionados em cada ano.
-    """
-
     dados = dados.dropna(subset=["data_operacao"]).copy()
     dados["ano"] = dados["data_operacao"].dt.year
 
@@ -208,13 +175,6 @@ def serie_capacidade_anual(dados):
 
 
 def producao_mensal_estimada(dados, fonte):
-    """
-    Calcula a produção mensal estimada em MWh.
-
-    Aqui eu agrupo por mês do ano, para aparecer Jan, Fev, Mar...
-    e não no formato 2025-01.
-    """
-
     fator = fator_capacidade(fonte)
 
     dados = dados.dropna(subset=["data_operacao"]).copy()
@@ -237,12 +197,7 @@ def producao_mensal_estimada(dados, fonte):
 
 
 def producao_anual_estimada(dados, fonte):
-    """
-    Calcula a produção anual estimada em MWh.
-    """
-
     fator = fator_capacidade(fonte)
-
     capacidade_anual = serie_capacidade_anual(dados)
     producao_mwh = capacidade_anual * 8760 * fator
 
@@ -250,12 +205,6 @@ def producao_anual_estimada(dados, fonte):
 
 
 def projetar_para_2027(serie):
-    """
-    Projeta a capacidade instalada para o ano de 2027 usando tendência linear.
-
-    A projeção é simples e serve como apoio para interpretação dos dados.
-    """
-
     serie = serie.dropna()
 
     if len(serie) < 3:
@@ -271,10 +220,6 @@ def projetar_para_2027(serie):
 
 
 def criar_grafico(tipo, estado, fonte):
-    """
-    Gera o gráfico exibido no dashboard.
-    """
-
     df = carregar_dados()
     titulo_fonte = fonte if fonte != "Todas" else "Solar + Eólica"
 
@@ -393,10 +338,6 @@ def criar_grafico(tipo, estado, fonte):
 
 
 def montar_resposta(tipo, estado, fonte):
-    """
-    Monta o texto explicativo que aparece no dashboard.
-    """
-
     df = carregar_dados()
     titulo_fonte = fonte if fonte != "Todas" else "Solar + Eólica"
 
@@ -526,12 +467,6 @@ def montar_resposta(tipo, estado, fonte):
     return "Não foi possível reconhecer o tipo de análise selecionado."
 
 
-@app.route("/")
-def home():
-    return render_template("index.html") 
-"Servidor do projeto rodando corretamente. Agora é só abrir o dashboard."
-
-
 @app.route("/api/analise")
 def api_analise():
     tipo = request.args.get("tipo", "ranking")
@@ -542,7 +477,7 @@ def api_analise():
 
     return jsonify({
         "resposta": resposta,
-        "grafico_url": f"http://127.0.0.1:5000/api/grafico?tipo={tipo}&estado={estado}&fonte={fonte}"
+        "grafico_url": f"/api/grafico?tipo={tipo}&estado={estado}&fonte={fonte}"
     })
 
 
@@ -559,10 +494,4 @@ def api_grafico():
 
 if __name__ == "__main__":
     print("Servidor iniciado com sucesso.")
-    print("Abra o arquivo index.html no navegador.")
-   
-    import os
-
-if __name__ == "__main__":
-    print("Servidor iniciado.")
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

@@ -464,7 +464,7 @@ function consultar() {
     document.getElementById("resposta").innerText = "Processando análise...";
     document.getElementById("grafico").style.display = "none";
 
-    const url = `http://127.0.0.1:5000/api/analise?tipo=${tipoAtual}&estado=${estado}&fonte=${encodeURIComponent(fonte)}`;
+    const url = `/api/analise?tipo=${tipoAtual}&estado=${estado}&fonte=${encodeURIComponent(fonte)}`;
 
     fetch(url)
         .then(res => res.json())
@@ -479,7 +479,7 @@ function consultar() {
         })
         .catch(() => {
             document.getElementById("resposta").innerText =
-                "Não foi possível conectar com a API. Verifique se o arquivo api_oficial.py está rodando.";
+                "Não foi possível conectar com a API. Aguarde alguns segundos e tente novamente.";
             document.getElementById("status").innerText = "Erro de conexão com o servidor.";
         });
 }
