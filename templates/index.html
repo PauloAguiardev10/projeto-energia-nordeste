@@ -291,6 +291,13 @@ select {
     margin-top: 12px;
 }
 
+.warning {
+    color: #facc15;
+    margin-top: 10px;
+    display: none;
+    font-size: 14px;
+}
+
 footer {
     color: #94a3b8;
     text-align: center;
@@ -420,7 +427,7 @@ footer {
     <section class="panel">
         <div class="filters">
             <div>
-                <div class="checkbox-title" id="tituloEstados">Selecione estados para comparar</div>
+                <div class="checkbox-title" id="tituloEstados">Selecione até 3 estados para comparar</div>
                 <div class="checkbox-grid" id="estadosContainer">
                     <label><input type="checkbox" value="CE" checked> Ceará</label>
                     <label><input type="checkbox" value="BA" checked> Bahia</label>
@@ -431,6 +438,9 @@ footer {
                     <label><input type="checkbox" value="MA"> Maranhão</label>
                     <label><input type="checkbox" value="AL"> Alagoas</label>
                     <label><input type="checkbox" value="SE"> Sergipe</label>
+                </div>
+                <div class="warning" id="avisoEstados">
+                    Para comparar, selecione no máximo 3 estados. Para ver todos, use o Ranking do Nordeste.
                 </div>
             </div>
 
@@ -521,13 +531,23 @@ function selecionarTipo(tipo, botao) {
 
     const inputs = document.querySelectorAll("#estadosContainer input");
     const titulo = document.getElementById("tituloEstados");
+    const aviso = document.getElementById("avisoEstados");
 
     if (tipoAtual === "ranking") {
         titulo.innerText = "No ranking, todos os estados são comparados automaticamente";
-        inputs.forEach(input => input.disabled = true);
+        aviso.style.display = "none";
+
+        inputs.forEach(input => {
+            input.disabled = true;
+        });
     } else {
-        titulo.innerText = "Selecione estados para comparar";
-        inputs.forEach(input => input.disabled = false);
+        titulo.innerText = "Selecione até 3 estados para comparar";
+
+        inputs.forEach(input => {
+            input.disabled = false;
+        });
+
+        limitarEstadosMarcados();
     }
 
     atualizarTudo();
@@ -543,6 +563,24 @@ function pegarEstadosSelecionados() {
     }
 
     return estados;
+}
+
+function limitarEstadosMarcados() {
+    if (tipoAtual === "ranking") {
+        return;
+    }
+
+    const inputs = Array.from(document.querySelectorAll("#estadosContainer input"));
+    const marcados = inputs.filter(input => input.checked);
+    const aviso = document.getElementById("avisoEstados");
+
+    if (marcados.length > 3) {
+        const ultimo = marcados[marcados.length - 1];
+        ultimo.checked = false;
+        aviso.style.display = "block";
+    } else {
+        aviso.style.display = "none";
+    }
 }
 
 function criarMiniGrafico(idCanvas, chartAtual, labels, valores, cor) {
@@ -687,6 +725,8 @@ function atualizarGrafico() {
                 fill: data.tipo_grafico === "bar"
             }));
 
+            const indexAxis = data.horizontal ? "y" : "x";
+
             grafico = new Chart(ctx, {
                 type: data.tipo_grafico,
                 data: {
@@ -694,6 +734,7 @@ function atualizarGrafico() {
                     datasets: datasets
                 },
                 options: {
+                    indexAxis: indexAxis,
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: {
@@ -754,6 +795,8 @@ function atualizarComparativo() {
 function atualizarTudo() {
     document.getElementById("loading").style.display = "block";
 
+    limitarEstadosMarcados();
+
     Promise.all([
         atualizarCards(),
         atualizarAnalise(),
@@ -766,7 +809,10 @@ function atualizarTudo() {
 }
 
 document.querySelectorAll("#estadosContainer input").forEach(input => {
-    input.addEventListener("change", atualizarTudo);
+    input.addEventListener("change", () => {
+        limitarEstadosMarcados();
+        atualizarTudo();
+    });
 });
 
 atualizarTudo();

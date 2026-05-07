@@ -13,9 +13,9 @@ A proposta é transformar dados técnicos em informações visuais, facilitando:
 - comparação lado a lado entre estados;
 - cards inteligentes com crescimento percentual e mini gráficos.
 
-Observação:
-A base da ANEEL informa capacidade instalada. Por isso, a produção apresentada
-é uma estimativa calculada com base em fator médio de capacidade.
+Correção importante:
+Alguns estados possuem dados em anos diferentes. Para evitar erro no gráfico,
+todas as análises anuais usam o mesmo eixo de anos e os anos sem dados recebem 0.
 """
 
 from flask import Flask, jsonify, request, render_template
@@ -80,10 +80,8 @@ def fator_capacidade(fonte):
 
 def carregar_dados():
     """
-    Aqui eu carrego os dados oficiais da ANEEL.
-
-    Usei cache para evitar baixar a base várias vezes seguidas,
-    deixando o dashboard mais rápido.
+    Carrega os dados oficiais da ANEEL e faz o tratamento inicial.
+    O cache evita baixar a base repetidamente a cada clique no dashboard.
     """
 
     agora = time.time()
@@ -165,6 +163,35 @@ def serie_capacidade_anual(dados):
     )
 
 
+def anos_padrao(df, fonte):
+    """
+    Cria um eixo único de anos para todos os estados.
+    Isso resolve o problema dos gráficos anuais quando cada estado tem anos diferentes.
+    """
+
+    dados = filtrar_dados(df, "TODOS", fonte)
+    dados = dados.dropna(subset=["data_operacao"]).copy()
+
+    if dados.empty:
+        return []
+
+    dados["ano"] = dados["data_operacao"].dt.year
+
+    anos = sorted(dados["ano"].dropna().astype(int).unique())
+
+    # Mantemos os anos mais recentes para o gráfico não ficar poluído.
+    return anos[-8:]
+
+
+def alinhar_serie(serie, anos):
+    """
+    Garante que todos os estados tenham os mesmos anos no gráfico.
+    Quando não existe dado em determinado ano, preenche com 0.
+    """
+
+    return serie.reindex(anos, fill_value=0)
+
+
 def producao_anual_estimada(dados, fonte):
     return serie_capacidade_anual(dados) * 8760 * fator_capacidade(fonte)
 
@@ -192,6 +219,9 @@ def producao_mensal_estimada(dados, fonte):
 def projetar_2027(serie):
     serie = serie.dropna()
 
+    # Usa apenas valores reais maiores que zero para calcular tendência.
+    serie = serie[serie > 0]
+
     if len(serie) < 3:
         return 0
 
@@ -205,10 +235,6 @@ def projetar_2027(serie):
 
 
 def calcular_crescimento_percentual(serie):
-    """
-    Calcula o crescimento percentual comparando os dois últimos anos com dados.
-    """
-
     serie = serie[serie > 0].dropna()
 
     if len(serie) < 2:
@@ -224,10 +250,6 @@ def calcular_crescimento_percentual(serie):
 
 
 def resumo_por_fonte(df, fonte):
-    """
-    Monta os dados dos cards de Solar, Eólica e Total.
-    """
-
     if fonte == "Todas":
         dados = df.copy()
     else:
@@ -250,16 +272,6 @@ def resumo_por_fonte(df, fonte):
 
 @app.route("/api/resumo")
 def api_resumo():
-    """
-    Retorna os cards principais do dashboard.
-
-    Agora os cards ficam mais claros:
-    - Solar no Nordeste
-    - Eólica no Nordeste
-    - Total Solar + Eólica
-    - Estado líder
-    """
-
     df = carregar_dados()
 
     solar = resumo_por_fonte(df, "Solar")
@@ -330,11 +342,12 @@ def api_dados_grafico():
         ranking = (
             dados.groupby("sigufprincipal")["potencia_kw"]
             .sum()
-            .sort_values(ascending=False) / 1000
+            .sort_values(ascending=True) / 1000
         )
 
         return jsonify({
             "tipo_grafico": "bar",
+            "horizontal": True,
             "labels": [nome_estado(uf) for uf in ranking.index],
             "datasets": [{
                 "label": "Capacidade instalada (MW)",
@@ -346,36 +359,43 @@ def api_dados_grafico():
     datasets = []
     labels_finais = []
 
+    if tipo in ["expansao_usinas", "producao_anual", "projecao_2027"]:
+        anos = anos_padrao(df, fonte)
+        labels_finais = [str(ano) for ano in anos]
+
     for uf in estados:
         dados_estado = filtrar_dados(df, uf, fonte)
 
         if tipo == "expansao_usinas":
-            serie = serie_capacidade_anual(dados_estado).tail(8)
-            labels = [str(ano) for ano in serie.index]
+            serie = serie_capacidade_anual(dados_estado)
+            serie = alinhar_serie(serie, anos)
+
             valores = [round(float(valor), 2) for valor in serie.values]
 
         elif tipo == "producao_mensal":
             producao = producao_mensal_estimada(dados_estado, fonte)
-            labels = list(producao.keys())
+            labels_finais = list(producao.keys())
             valores = [round(float(valor), 2) for valor in producao.values()]
 
         elif tipo == "producao_anual":
-            serie = producao_anual_estimada(dados_estado, fonte).tail(8)
-            labels = [str(ano) for ano in serie.index]
+            serie = producao_anual_estimada(dados_estado, fonte)
+            serie = alinhar_serie(serie, anos)
+
             valores = [round(float(valor), 2) for valor in serie.values]
 
         elif tipo == "projecao_2027":
-            serie = serie_capacidade_anual(dados_estado).tail(8)
-            previsao = projetar_2027(serie)
+            serie_original = serie_capacidade_anual(dados_estado)
+            previsao = projetar_2027(serie_original)
 
-            labels = [str(ano) for ano in serie.index] + ["2027"]
+            serie = alinhar_serie(serie_original, anos)
+
+            labels_finais_com_projecao = [str(ano) for ano in anos] + ["2027"]
             valores = [round(float(valor), 2) for valor in serie.values] + [round(float(previsao), 2)]
 
-        else:
-            labels = []
-            valores = []
+            labels_finais = labels_finais_com_projecao
 
-        labels_finais = labels
+        else:
+            valores = []
 
         datasets.append({
             "label": nome_estado(uf),
@@ -384,6 +404,7 @@ def api_dados_grafico():
 
     return jsonify({
         "tipo_grafico": "line",
+        "horizontal": False,
         "labels": labels_finais,
         "datasets": datasets
     })
@@ -425,6 +446,7 @@ def api_analise():
         return jsonify({"resposta": texto})
 
     estados = preparar_estados(estado)
+    anos = anos_padrao(df, fonte)
 
     if tipo == "expansao_usinas":
         texto = f"Expansão de usinas - {titulo_fonte}\n"
@@ -432,7 +454,8 @@ def api_analise():
 
         for uf in estados:
             dados_estado = filtrar_dados(df, uf, fonte)
-            serie = serie_capacidade_anual(dados_estado).tail(8)
+            serie = serie_capacidade_anual(dados_estado)
+            serie = alinhar_serie(serie, anos)
 
             texto += f"{nome_estado(uf)}\n"
             texto += "Histórico anual de capacidade adicionada:\n"
@@ -468,7 +491,8 @@ def api_analise():
 
         for uf in estados:
             dados_estado = filtrar_dados(df, uf, fonte)
-            serie = producao_anual_estimada(dados_estado, fonte).tail(8)
+            serie = producao_anual_estimada(dados_estado, fonte)
+            serie = alinhar_serie(serie, anos)
 
             texto += f"{nome_estado(uf)}\n"
 
@@ -486,11 +510,14 @@ def api_analise():
 
         for uf in estados:
             dados_estado = filtrar_dados(df, uf, fonte)
-            serie = serie_capacidade_anual(dados_estado).tail(8)
-            previsao = projetar_2027(serie)
+            serie_original = serie_capacidade_anual(dados_estado)
+            serie_alinhada = alinhar_serie(serie_original, anos)
+            previsao = projetar_2027(serie_original)
 
-            ultimo_ano = int(serie.index[-1]) if len(serie) > 0 else 2026
-            ultimo_valor = float(serie.iloc[-1]) if len(serie) > 0 else 0
+            serie_real = serie_original[serie_original > 0]
+
+            ultimo_ano = int(serie_real.index[-1]) if len(serie_real) > 0 else 2026
+            ultimo_valor = float(serie_real.iloc[-1]) if len(serie_real) > 0 else 0
 
             crescimento = 0
             if ultimo_valor != 0:
@@ -499,7 +526,7 @@ def api_analise():
             texto += f"{nome_estado(uf)}\n"
             texto += "Histórico recente:\n"
 
-            for ano, valor in serie.items():
+            for ano, valor in serie_alinhada.items():
                 texto += f"{ano}: {valor:.2f} MW adicionados\n"
 
             texto += f"2027 projetado: {previsao:.2f} MW\n"
@@ -513,10 +540,6 @@ def api_analise():
 
 @app.route("/api/insight")
 def api_insight():
-    """
-    Gera um insight automático para deixar o dashboard mais parecido com uma análise de BI.
-    """
-
     df = carregar_dados()
 
     solar = resumo_por_fonte(df, "Solar")
